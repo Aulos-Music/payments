@@ -1,13 +1,21 @@
-pub mod client;
+pub mod app;
+pub mod error;
+pub mod server;
 
-use crate::client::Client;
-use axum::routing::get;
+use crate::app::setup_app;
 
 #[tokio::main]
 async fn main() {
-    let client = Client::new();
-    let client = client.setup_get_route("", get(|| async { "OK" }));
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, client.app).await.unwrap();
+    match setup_app().await {
+        Ok((client, listener)) => {
+            println!("Listening on port 3000");
+            axum::serve(listener, client.app)
+                .with_graceful_shutdown(app::shutdown_signal())
+                .await
+                .expect("Server failed");
+        }
+        Err(e) => {
+            eprintln!("Failed to start: {e}");
+        }
+    };
 }
